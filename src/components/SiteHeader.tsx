@@ -1,7 +1,6 @@
-"use client";
-
 import Link from "next/link";
-import { useState } from "react";
+import { readSession } from "@/lib/auth";
+import { getUserPlanCached } from "@/lib/db";
 
 function LogoMark() {
   return (
@@ -25,8 +24,9 @@ const NAV = [
   ["/#pricing", "תמחור"],
 ] as const;
 
-export function SiteHeader() {
-  const [open, setOpen] = useState(false);
+export async function SiteHeader() {
+  const session = await readSession();
+  const plan = session ? await getUserPlanCached(session.userId) : null;
 
   return (
     <header className="sticky top-0 z-50 border-b border-white/[0.06] bg-[#04040a]/70 backdrop-blur-2xl backdrop-saturate-150">
@@ -51,42 +51,32 @@ export function SiteHeader() {
         </nav>
 
         <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setOpen(!open)}
-            className="rounded-lg p-2 text-zinc-400 transition hover:bg-white/[0.05] hover:text-white md:hidden"
-            aria-label="תפריט"
-          >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              {open ? (
-                <path d="M6 6l12 12M18 6L6 18" strokeLinecap="round" />
-              ) : (
-                <path d="M4 7h16M4 12h16M4 17h16" strokeLinecap="round" />
-              )}
-            </svg>
-          </button>
+          {session ? (
+            plan?.plan ? (
+              <span className="rounded-full bg-orange-500/15 px-3.5 py-1.5 text-xs font-semibold uppercase tracking-wider text-orange-300 ring-1 ring-orange-500/30">
+                {plan.plan === "pro" ? "Pro" : "Enterprise"}
+              </span>
+            ) : (
+              <Link
+                href="/#pricing"
+                className="rounded-full bg-white/[0.04] px-3.5 py-1.5 text-xs font-semibold text-white ring-1 ring-orange-500/30 hover:bg-orange-500/15"
+              >
+                שדרג ל-Pro
+              </Link>
+            )
+          ) : (
+            <Link
+              href="/signin"
+              className="rounded-full bg-white/[0.04] px-3.5 py-1.5 text-xs font-medium text-zinc-300 hover:bg-white/[0.07] hover:text-white"
+            >
+              התחבר
+            </Link>
+          )}
           <Link href="/dashboard" className="btn-primary !px-4 !py-2.5 !text-sm sm:!px-5">
             פתח דשבורד
           </Link>
         </div>
       </div>
-
-      {open && (
-        <nav className="border-t border-white/[0.06] px-6 py-4 md:hidden">
-          <div className="flex flex-col gap-1">
-            {NAV.map(([href, label]) => (
-              <Link
-                key={href}
-                href={href}
-                onClick={() => setOpen(false)}
-                className="rounded-lg px-3 py-2.5 text-sm font-medium text-zinc-400 transition hover:bg-white/[0.04] hover:text-white"
-              >
-                {label}
-              </Link>
-            ))}
-          </div>
-        </nav>
-      )}
     </header>
   );
 }

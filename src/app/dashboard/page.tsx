@@ -1,6 +1,9 @@
 import Link from "next/link";
 import { DashboardClient } from "@/components/DashboardClient";
 import { AlertSignup } from "@/components/AlertSignup";
+import { PricingCtaButton } from "@/components/PricingCtaButton";
+import { readSession } from "@/lib/auth";
+import { getUserPlanCached } from "@/lib/db";
 import { getSignals } from "@/lib/signals";
 
 export const revalidate = 1800;
@@ -13,6 +16,9 @@ export default async function DashboardPage({
 }) {
   const params = await searchParams;
   const bundle = await getSignals(params.refresh === "1");
+
+  const session = await readSession();
+  const plan = session ? await getUserPlanCached(session.userId) : null;
 
   const stats = [
     { label: "סיגנלים", value: bundle.signals.length, tone: "white" as const },
@@ -45,12 +51,28 @@ export default async function DashboardPage({
         </Link>
       </div>
 
+      {session && !plan?.plan && (
+        <div className="mb-10 rounded-2xl border border-orange-500/30 bg-gradient-to-l from-orange-500/10 to-violet-500/5 p-6">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-orange-400">
+                Pro זמין
+              </p>
+              <h2 className="mt-1 text-lg font-bold text-white">
+                קיבלת גישה לכל 60 הסיגנלים + התראות
+              </h2>
+              <p className="mt-1 text-sm text-zinc-400">
+                API, ייצוא, וסינון עיר/תחום — מוכן בלחיצה אחת.
+              </p>
+            </div>
+            <PricingCtaButton tierId="pro" ctaLabel="שדרג ל-Pro · $49/חודש" highlight={true} />
+          </div>
+        </div>
+      )}
+
       <div className="mb-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {stats.map((s) => (
-          <div
-            key={s.label}
-            className={`stat-card stat-card--${s.tone}`}
-          >
+          <div key={s.label} className={`stat-card stat-card--${s.tone}`}>
             <p className="text-sm font-medium text-zinc-600">{s.label}</p>
             <p className="mt-2 font-mono text-3xl font-bold text-white">{s.value}</p>
           </div>
