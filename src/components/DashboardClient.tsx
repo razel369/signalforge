@@ -115,10 +115,34 @@ export function DashboardClient({ bundle }: { bundle: SignalBundle }) {
         ))}
       </div>
 
-      {filtered.length === 0 && (
+      {filtered.length === 0 && bundle.signals.length === 0 && (
         <div className="glass-sm py-16 text-center">
-          <p className="text-zinc-500">אין תוצאות לסינון הנוכחי.</p>
-          <p className="mt-1 text-sm text-zinc-600">נסה להוריד את הציון המינימלי או לשנות את האזור.</p>
+          <p className="text-zinc-400">לא הצלחנו לטעון סיגנלים כרגע.</p>
+          <p className="mt-2 text-sm text-zinc-600">
+            המקורות הממשלתיים לא הגיבו. נסה שוב בעוד כמה דקות.
+          </p>
+        </div>
+      )}
+
+      {filtered.length === 0 && bundle.signals.length > 0 && (
+        <div className="glass-sm py-16 text-center">
+          <p className="text-zinc-400">אין תוצאות לסינון הנוכחי.</p>
+          <p className="mt-2 text-sm text-zinc-600">
+            נסה להוריד את הציון המינימלי או לשנות את האזור.
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              setType("");
+              setQuery("");
+              setMinScore(0);
+              setRegion("הכל");
+              setUrgency("");
+            }}
+            className="btn-secondary mt-5 !px-4 !py-2 !text-sm"
+          >
+            אפס סינון
+          </button>
         </div>
       )}
     </>

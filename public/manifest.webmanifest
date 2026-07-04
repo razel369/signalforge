@@ -1,0 +1,14 @@
+{
+  "name": "SignalForge",
+  "short_name": "SignalForge",
+  "description": "מנוע סיגנלים B2B ישראלי",
+  "lang": "he",
+  "dir": "rtl",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#04040a",
+  "theme_color": "#04040a",
+  "icons": [
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
