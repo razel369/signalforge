@@ -36,15 +36,15 @@ function freshEnough(at: number): boolean {
 export async function syncSignals(): Promise<SignalBundle> {
   const [tenders, companies] = await Promise.all([
     fetchActiveTenders().catch(() => []),
-    fetchRecentCompanies(30).catch(() => []),
+    fetchRecentCompanies(50).catch(() => []),
   ]);
 
-  const tenderSignals = rankSignals(tenders.map(scoreTender)).slice(0, 50);
+  const tenderSignals = rankSignals(tenders.map(scoreTender)).slice(0, 80);
   const companySignals = rankSignals(companies.map(scoreCompany))
     .filter((s) => s.score >= 40)
-    .slice(0, 15);
+    .slice(0, 25);
 
-  const signals = rankSignals([...tenderSignals, ...companySignals]).slice(0, 60);
+  const signals = rankSignals([...tenderSignals, ...companySignals]).slice(0, 100);
 
   const bundle: SignalBundle = {
     signals,

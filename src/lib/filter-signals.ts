@@ -1,5 +1,4 @@
 import type { CityPage, NichePage } from "./seo-pages";
-import { cityMatchesText } from "./seo-pages";
 import type { Signal, SignalType } from "./types";
 
 export type SignalFilters = {
@@ -46,13 +45,23 @@ export function filterSignals(signals: Signal[], filters: SignalFilters): Signal
   return out;
 }
 
+/**
+ * Exact city match only. Case-insensitive, whitespace-trimmed, no regional
+ * fallback here — the page layer is responsible for deciding whether to
+ * surface a regional fallback when no exact matches exist.
+ */
 export function filterSignalsForCity(signals: Signal[], city: CityPage): Signal[] {
-  return signals.filter((s) => {
-    if (s.city.includes(city.name) || city.name.includes(s.city)) return true;
-    if (s.zone === city.region || s.region === city.region) return true;
-    const blob = `${s.title} ${s.subtitle} ${s.city}`;
-    return cityMatchesText(city, blob);
-  });
+  const target = city.name.trim().toLowerCase();
+  return signals.filter((s) => s.city.trim().toLowerCase() === target);
+}
+
+/**
+ * Regional fallback filtered by zone. Used only when the exact city match
+ * returns zero results.
+ */
+export function filterSignalsByRegion(signals: Signal[], city: CityPage): Signal[] {
+  const region = city.region.trim();
+  return signals.filter((s) => s.zone === region || s.region === region);
 }
 
 export function filterSignalsForNiche(signals: Signal[], niche: NichePage): Signal[] {

@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { AlertSignup } from "@/components/AlertSignup";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { SignalCard } from "@/components/SignalCard";
-import { filterSignalsForCity } from "@/lib/filter-signals";
+import { filterSignalsByRegion, filterSignalsForCity } from "@/lib/filter-signals";
 import { getCityBySlug, CITY_PAGES } from "@/lib/seo-pages";
 import { getSignals } from "@/lib/signals";
 
@@ -43,11 +43,19 @@ export default async function CityMichrazimPage({ params }: Props) {
   }
 
   const bundle = await getSignals();
-  const local = filterSignalsForCity(bundle.signals, city);
-  const display =
-    local.length > 0
-      ? local.slice(0, 12)
-      : bundle.signals.filter((s) => s.type === "tender").slice(0, 6);
+  const exact = filterSignalsForCity(bundle.signals, city);
+  const hasExact = exact.length > 0;
+
+  // Regional fallback only kicks in when zero exact matches exist, so the
+  // page is never broken — but the heading always disambiguates.
+  const regional = hasExact ? [] : filterSignalsByRegion(bundle.signals, city);
+
+  const display = (hasExact ? exact : regional).slice(0, 12);
+  const mode: "exact" | "regional" | "empty" = hasExact
+    ? "exact"
+    : regional.length > 0
+      ? "regional"
+      : "empty";
 
   return (
     <main className="dot-grid mx-auto max-w-6xl px-6 py-12">
@@ -63,15 +71,28 @@ export default async function CityMichrazimPage({ params }: Props) {
           <span className="section-label-dot" />
           {city.region}
         </p>
-        <h1>מכרזים {city.name}</h1>
+        <h1>
+          {mode === "exact"
+            ? `מכרזים ${city.name}`
+            : mode === "regional"
+              ? `מכרזים באזור ${city.region}`
+              : `מכרזים ${city.name}`}
+        </h1>
         <p className="mt-4 max-w-2xl text-zinc-500">
-          סיגנלים חיים באזור {city.region} — מדורגים לפי דחיפות ופוטנציאל.
+          {mode === "exact"
+            ? `סיגנלים חיים ב${city.name} — מדורגים לפי דחיפות ופוטנציאל.`
+            : mode === "regional"
+              ? `אין כרגע סיגנלים ספציפיים ב${city.name} — מציגים את הסיגנלים החמים באזור ${city.region}.`
+              : `עדיין אין סיגנלים פעילים ב${city.name} — בקרוב ייפתחו כאן מכרזים חדשים.`}
         </p>
       </header>
 
       <div className="mb-10 grid gap-4 sm:grid-cols-3">
         {[
-          { label: "סיגנלים בעיר", value: local.length || display.length },
+          {
+            label: mode === "exact" ? "סיגנלים בעיר" : mode === "regional" ? "סיגנלים באזור" : "סיגנלים בעיר",
+            value: display.length,
+          },
           { label: "מכרזים כללי", value: bundle.stats.tenders },
           { label: "ציון ממוצע", value: bundle.stats.avgScore },
         ].map((s) => (
@@ -88,20 +109,28 @@ export default async function CityMichrazimPage({ params }: Props) {
 
       <div className="mb-6 flex items-center justify-between">
         <h2 className="text-lg font-semibold text-white">
-          {local.length > 0
-            ? `${local.length} סיגנלים ב${city.name}`
-            : `מכרזים באזור ${city.region}`}
+          {mode === "exact"
+            ? `${exact.length} סיגנלים ב${city.name}`
+            : mode === "regional"
+              ? `${regional.length} סיגנלים באזור ${city.region}`
+              : `בקרוב ייפתחו מכרזים חדשים ב${city.name}`}
         </h2>
         <Link href="/dashboard" className="text-sm font-medium text-orange-400 hover:text-orange-300">
           דשבורד ←
         </Link>
       </div>
 
-      <div className="flex flex-col gap-3">
-        {display.map((signal) => (
-          <SignalCard key={signal.id} signal={signal} />
-        ))}
-      </div>
+      {mode === "empty" ? (
+        <div className="glass-sm p-10 text-center text-zinc-500">
+          בקרוב ייפתחו מכרזים חדשים ב{city.name}. הירשם להתראות כדי לקבל עדכון ראשון.
+        </div>
+      ) : (
+        <div className="flex flex-col gap-3">
+          {display.map((signal) => (
+            <SignalCard key={signal.id} signal={signal} />
+          ))}
+        </div>
+      )}
     </main>
   );
 }

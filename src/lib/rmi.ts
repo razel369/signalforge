@@ -27,25 +27,62 @@ function isOpenTender(t: TenderRecord, now: number): boolean {
   return (OPEN_TENDER_STATUSES as readonly number[]).includes(t.StatusMichraz);
 }
 
-export async function fetchActiveTenders(): Promise<TenderRecord[]> {
-  const res = await fetch(
-    "https://apps.land.gov.il/MichrazimSite/api/SearchApi/Search",
-    {
+const RMI_ENDPOINT =
+  "https://apps.land.gov.il/MichrazimSite/api/SearchApi/Search";
+
+async function fetchRmiPage(pageIndex: number, pageSize: number): Promise<TenderRecord[]> {
+  try {
+    const res = await fetch(RMI_ENDPOINT, {
       method: "POST",
       headers: RMI_HEADERS,
-      body: JSON.stringify({ PageIndex: 1, PageSize: 100, StatusMichraz: 1 }),
+      body: JSON.stringify({
+        PageIndex: pageIndex,
+        PageSize: pageSize,
+        StatusMichraz: 1,
+      }),
       next: { revalidate: 1800 },
-    },
-  );
-
-  if (!res.ok) {
+    });
+    if (!res.ok) return [];
+    const data = (await res.json()) as TenderRecord[] | TenderRecord;
+    return Array.isArray(data) ? data : [];
+  } catch {
     return [];
   }
+}
 
-  const rows = (await res.json()) as TenderRecord[];
+/**
+ * Fetch the broadest realistic set of currently-open RMI tenders.
+ *
+ * - Tries PageSize=200 first. RMI caps PageSize at 100, so if it isn't taking
+ *   the hint the response will simply come back the same size as a 100-page.
+ * - If PageSize=200 returns ≤100 rows, falls back to fetching pages 1-3 of
+ *   PageSize=100 in parallel and dedupes by MichrazID.
+ */
+export async function fetchActiveTenders(): Promise<TenderRecord[]> {
+  const primary = await fetchRmiPage(1, 200);
+
+  let combined: TenderRecord[];
+  if (primary.length > 100) {
+    combined = primary;
+  } else {
+    const pages = await Promise.all([
+      fetchRmiPage(1, 100),
+      fetchRmiPage(2, 100),
+      fetchRmiPage(3, 100),
+    ]);
+
+    const byId = new Map<number, TenderRecord>();
+    for (const page of pages) {
+      for (const row of page) {
+        if (!byId.has(row.MichrazID)) byId.set(row.MichrazID, row);
+      }
+    }
+    combined = Array.from(byId.values());
+  }
+
   const now = Date.now();
 
-  return rows
+  return combined
     .filter((t) => isOpenTender(t, now))
     .sort(
       (a, b) =>
