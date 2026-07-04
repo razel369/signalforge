@@ -7,7 +7,8 @@ import { filterSignalsForCity } from "@/lib/filter-signals";
 import { getCityBySlug, CITY_PAGES } from "@/lib/seo-pages";
 import { getSignals } from "@/lib/signals";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 3600;
+export const dynamic = "force-static";
 
 type Props = { params: Promise<{ slug: string }> };
 

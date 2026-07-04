@@ -34,12 +34,12 @@ export async function fetchActiveTenders(): Promise<TenderRecord[]> {
       method: "POST",
       headers: RMI_HEADERS,
       body: JSON.stringify({ PageIndex: 1, PageSize: 100, StatusMichraz: 1 }),
-      cache: "no-store",
+      next: { revalidate: 1800 },
     },
   );
 
   if (!res.ok) {
-    throw new Error(`RMI API ${res.status}`);
+    return [];
   }
 
   const rows = (await res.json()) as TenderRecord[];

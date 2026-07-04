@@ -3,7 +3,8 @@ import { DashboardClient } from "@/components/DashboardClient";
 import { AlertSignup } from "@/components/AlertSignup";
 import { getSignals } from "@/lib/signals";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 1800;
+export const dynamic = "force-static";
 
 export default async function DashboardPage({
   searchParams,

@@ -6,7 +6,8 @@ import { Pricing } from "@/components/Pricing";
 import { SignalTicker } from "@/components/SignalTicker";
 import { getSignals } from "@/lib/signals";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 1800;
+export const dynamic = "force-static";
 
 export default async function HomePage() {
   const bundle = await getSignals();

@@ -1,22 +1,42 @@
+import { promises as fs } from "fs";
+import path from "path";
 import { fetchRecentCompanies } from "./datagov";
 import { fetchActiveTenders } from "./rmi";
 import { rankSignals, scoreCompany, scoreTender } from "./scoring";
 import type { Signal, SignalBundle } from "./types";
 
-let cache: { bundle: SignalBundle; at: number } | null = null;
-const CACHE_TTL_MS = 30 * 60 * 1000;
+const CACHE_FILE = path.join(process.cwd(), "data", "signals-cache.json");
+const FRESH_MS = 30 * 60 * 1000; // 30 min
+const STALE_MS = 24 * 60 * 60 * 1000; // 24 h fallback
 
-function withTimeout<T>(promise: Promise<T>, ms: number, fallback: T): Promise<T> {
-  return Promise.race([
-    promise,
-    new Promise<T>((resolve) => setTimeout(() => resolve(fallback), ms)),
-  ]);
+type CacheEntry = { bundle: SignalBundle; at: number };
+
+let memCache: { bundle: SignalBundle; at: number } | null = null;
+
+async function readDisk(): Promise<CacheEntry | null> {
+  try {
+    const raw = await fs.readFile(CACHE_FILE, "utf-8");
+    const parsed = JSON.parse(raw) as CacheEntry;
+    if (parsed?.bundle?.signals && typeof parsed.at === "number") return parsed;
+  } catch {}
+  return null;
+}
+
+async function writeDisk(entry: CacheEntry): Promise<void> {
+  try {
+    await fs.mkdir(path.dirname(CACHE_FILE), { recursive: true });
+    await fs.writeFile(CACHE_FILE, JSON.stringify(entry), "utf-8");
+  } catch {}
+}
+
+function freshEnough(at: number): boolean {
+  return Date.now() - at < FRESH_MS;
 }
 
 export async function syncSignals(): Promise<SignalBundle> {
   const [tenders, companies] = await Promise.all([
-    withTimeout(fetchActiveTenders(), 25_000, []),
-    withTimeout(fetchRecentCompanies(30), 15_000, []),
+    fetchActiveTenders().catch(() => []),
+    fetchRecentCompanies(30).catch(() => []),
   ]);
 
   const tenderSignals = rankSignals(tenders.map(scoreTender)).slice(0, 50);
@@ -41,13 +61,32 @@ export async function syncSignals(): Promise<SignalBundle> {
     },
   };
 
-  cache = { bundle, at: Date.now() };
+  const entry = { bundle, at: Date.now() };
+  memCache = entry;
+  await writeDisk(entry);
   return bundle;
 }
 
 export async function getSignals(force = false): Promise<SignalBundle> {
-  if (!force && cache && Date.now() - cache.at < CACHE_TTL_MS) {
-    return cache.bundle;
+  if (force) {
+    return syncSignals();
   }
+
+  if (memCache && freshEnough(memCache.at)) {
+    return memCache.bundle;
+  }
+
+  const disk = await readDisk();
+  if (disk) {
+    memCache = disk;
+    if (freshEnough(disk.at)) return disk.bundle;
+
+    if (Date.now() - disk.at < STALE_MS) {
+      // Stale-while-revalidate: return stale bundle, refresh in background.
+      void syncSignals().catch(() => {});
+      return disk.bundle;
+    }
+  }
+
   return syncSignals();
 }

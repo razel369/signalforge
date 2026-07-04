@@ -22,7 +22,7 @@ async function dataGovFetch<T>(path: string): Promise<T | null> {
   try {
     const res = await fetch(path, {
       headers: DATA_GOV_HEADERS,
-      cache: "no-store",
+      next: { revalidate: 3600 },
     });
     if (!res.ok) return null;
     return (await res.json()) as T;
